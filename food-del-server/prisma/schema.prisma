@@ -1,0 +1,127 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User table / ユーザーテーブル
+model User {
+  id         Int      @id @default(autoincrement())
+  name       String   // User name / ユーザー名
+  email      String   @unique // Email address / メールアドレス
+  password   String   // Password (encrypted) / パスワード（暗号化）
+  role       String   @default("customer") // customer, admin, staff / 顧客、管理者、スタッフ
+  phone      String?  // Phone number / 電話番号
+  created_at DateTime @default(now()) // Created at / 作成日時
+  updated_at DateTime @updatedAt // Updated at / 更新日時
+  
+  // Relations / リレーション
+  cart       Cart?    // User cart / ユーザーのカート
+  orders     Order[]  // User orders / ユーザーの注文履歴
+  
+  @@map("users")
+}
+
+// Category table / カテゴリテーブル
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique // Category name / カテゴリ名
+  description String?  // Category description / カテゴリ説明
+  status      Boolean  @default(true) // Category status / カテゴリ状態
+  created_at  DateTime @default(now()) // Created at / 作成日時
+  updated_at  DateTime @updatedAt // Updated at / 更新日時
+  
+  // Relations / リレーション
+  foods       Food[]   // Foods in this category / このカテゴリの食品
+  
+  @@map("categories")
+}
+
+// Food table / 食品テーブル
+model Food {
+  id          Int      @id @default(autoincrement())
+  name        String   // Food name / 食品名
+  description String   // Food description / 食品説明
+  price       Float    // Food price / 食品価格
+  category_id Int      // Category ID / カテゴリID
+  image_path  String   // Image path / 画像パス
+  status      Boolean  @default(true) // Food status / 食品状態
+  created_at  DateTime @default(now()) // Created at / 作成日時
+  updated_at  DateTime @updatedAt // Updated at / 更新日時
+  
+  // Relations / リレーション
+  category    Category    @relation(fields: [category_id], references: [id]) // Food category / 食品カテゴリ
+  cart_items  CartItem[]  // Cart items / カートアイテム
+  order_items OrderItem[] // Order items / 注文アイテム
+  
+  @@map("foods")
+}
+
+// Cart table / カートテーブル
+model Cart {
+  id         Int      @id @default(autoincrement())
+  user_id    Int      @unique  // User ID (One-to-One) / ユーザーID（1対1）
+  created_at DateTime @default(now()) // Created at / 作成日時
+  updated_at DateTime @updatedAt // Updated at / 更新日時
+  
+  // Relations / リレーション
+  user       User       @relation(fields: [user_id], references: [id]) // Cart owner / カート所有者
+  cart_items CartItem[] // Items in cart / カート内アイテム
+  
+  @@map("carts")
+}
+
+// Cart item table / カートアイテムテーブル
+model CartItem {
+  id       Int @id @default(autoincrement())
+  cart_id  Int // Cart ID / カートID
+  food_id  Int // Food ID / 食品ID
+  quantity Int @default(1) // Quantity / 数量
+  
+  // Relations / リレーション
+  cart     Cart @relation(fields: [cart_id], references: [id]) // Parent cart / 親カート
+  food     Food @relation(fields: [food_id], references: [id]) // Food item / 食品アイテム
+  
+  @@unique([cart_id, food_id]) // One food per cart / カートあたり1つの食品
+  @@map("cart_items")
+}
+
+// Order table / 注文テーブル
+model Order {
+  id               Int      @id @default(autoincrement())
+  user_id          Int      // User ID / ユーザーID
+  total_amount     Float    // Total amount / 合計金額
+  status           String   @default("pending") // pending, confirmed, preparing, delivery, completed, cancelled / 待機中、確認済み、準備中、配送中、完了、キャンセル
+  delivery_address String   // Delivery address / 配送先住所
+  phone            String   // Contact phone / 連絡先電話番号
+  notes            String?  // Order notes / 注文メモ
+  order_date       DateTime @default(now()) // Order date / 注文日時
+  updated_at       DateTime @updatedAt // Updated at / 更新日時
+  
+  // Relations / リレーション
+  user             User        @relation(fields: [user_id], references: [id]) // Order owner / 注文者
+  order_items      OrderItem[] // Items in order / 注文アイテム
+  
+  @@map("orders")
+}
+
+// Order item table / 注文アイテムテーブル
+model OrderItem {
+  id       Int   @id @default(autoincrement())
+  order_id Int   // Order ID / 注文ID
+  food_id  Int   // Food ID / 食品ID
+  quantity Int   // Quantity / 数量
+  price    Float // Price at order time / 注文時の価格
+  
+  // Relations / リレーション
+  order    Order @relation(fields: [order_id], references: [id]) // Parent order / 親注文
+  food     Food  @relation(fields: [food_id], references: [id]) // Food item / 食品アイテム
+  
+  @@map("order_items")
+}

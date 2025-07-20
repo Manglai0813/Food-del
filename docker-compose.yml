@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # PostgreSQLデータベース
+  postgres:
+    image: postgres:16-alpine
+    container_name: food-del-postgres
+    environment:
+      POSTGRES_DB: fooddb
+      POSTGRES_USER: fooduser
+      POSTGRES_PASSWORD: FoodDel2025!@#
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - food-del-network
+
+  # バックエンドサーバー (Bun + Express + TypeScript)
+  server:
+    build:
+      context: ./food-del-server
+      dockerfile: Dockerfile
+    image: food-del-server
+    container_name: food-del-server
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://fooduser:FoodDel2025!@#@food-del-postgres:5432/fooddb
+      - NODE_ENV=development
+    depends_on:
+      - postgres
+    networks:
+      - food-del-network
+
+  # フロントエンドクライアント (React + Vite)
+  client:
+    build:
+      context: ./food-del-client
+      dockerfile: Dockerfile
+    image: food-del-client
+    container_name: food-del-client
+    ports:
+      - "5173:5173"
+    networks:
+      - food-del-network
+
+  # 管理者ダッシュボード (Next.js)
+  dashboard:
+    build:
+      context: ./food-del-dashboard
+      dockerfile: Dockerfile
+    image: food-del-dashboard
+    container_name: food-del-dashboard
+    ports:
+      - "3001:3000"
+    networks:
+      - food-del-network
+
+# ネットワーク設定
+networks:
+  food-del-network:
+    driver: bridge
+
+# データ永続化用ボリューム
+volumes:
+  postgres_data:

@@ -1,0 +1,48 @@
+# Node.js/Bun dependencies - 不复制到容器，在容器内重新安装
+# Node.js/Bun依存関係 - コンテナにコピーしない、コンテナ内で再インストール
+node_modules
+
+# Build outputs - 开发环境不需要
+# ビルド出力 - 開発環境では不要
+dist
+build
+*.tsbuildinfo
+
+# Environment files - 安全考虑
+# 環境ファイル - セキュリティ考慮
+.env
+.env.local
+.env.production
+.env.*.local
+
+# IDE and OS files - 不需要在容器中
+# IDEとOSファイル - コンテナ内不要
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Git files - 不需要
+# Gitファイル - 不要
+.git
+.gitignore
+
+# Logs - 不需要
+# ログ - 不要
+*.log
+npm-debug.log*
+yarn-debug.log*
+bun-debug.log*
+
+# TypeScript cache - 不需要
+# TypeScriptキャッシュ - 不要
+*.tsbuildinfo
+
+# Prisma generated files - 会在容器内重新生成
+# Prisma生成ファイル - コンテナ内で再生成
+prisma/generated
+
+# Docker files - 避免递归复制
+# Dockerファイル - 再帰コピー回避
+Dockerfile
+.dockerignore
