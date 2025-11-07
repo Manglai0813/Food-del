@@ -20,11 +20,13 @@ model User {
   phone      String?  // Phone number / 電話番号
   created_at DateTime @default(now()) // Created at / 作成日時
   updated_at DateTime @updatedAt // Updated at / 更新日時
-  
+
   // Relations / リレーション
-  cart       Cart?    // User cart / ユーザーのカート
-  orders     Order[]  // User orders / ユーザーの注文履歴
-  
+  cart               Cart?                 // User cart / ユーザーのカート
+  orders             Order[]               // User orders / ユーザーの注文履歴
+  status_updates     OrderStatusHistory[]  // Status updates by this user / このユーザーが更新したステータス履歴
+  inventory_changes  InventoryHistory[]    // Inventory changes made by this user / このユーザーが行った在庫変更
+
   @@map("users")
 }
 
@@ -52,14 +54,22 @@ model Food {
   category_id Int      // Category ID / カテゴリID
   image_path  String   // Image path / 画像パス
   status      Boolean  @default(true) // Food status / 食品状態
+
+  // Inventory management fields / 在庫管理フィールド
+  stock       Int      @default(0) // Available stock / 利用可能在庫
+  reserved    Int      @default(0) // Reserved stock / 予約済み在庫
+  min_stock   Int      @default(0) // Minimum stock threshold / 最小在庫閾値
+  version     Int      @default(1) // Optimistic lock version / 楽観的ロックバージョン
+
   created_at  DateTime @default(now()) // Created at / 作成日時
   updated_at  DateTime @updatedAt // Updated at / 更新日時
-  
+
   // Relations / リレーション
-  category    Category    @relation(fields: [category_id], references: [id]) // Food category / 食品カテゴリ
-  cart_items  CartItem[]  // Cart items / カートアイテム
-  order_items OrderItem[] // Order items / 注文アイテム
-  
+  category         Category           @relation(fields: [category_id], references: [id]) // Food category / 食品カテゴリ
+  cart_items       CartItem[]         // Cart items / カートアイテム
+  order_items      OrderItem[]        // Order items / 注文アイテム
+  inventory_history InventoryHistory[] // Inventory history / 在庫履歴
+
   @@map("foods")
 }
 
@@ -103,11 +113,13 @@ model Order {
   notes            String?  // Order notes / 注文メモ
   order_date       DateTime @default(now()) // Order date / 注文日時
   updated_at       DateTime @updatedAt // Updated at / 更新日時
-  
+
   // Relations / リレーション
-  user             User        @relation(fields: [user_id], references: [id]) // Order owner / 注文者
-  order_items      OrderItem[] // Items in order / 注文アイテム
-  
+  user             User                  @relation(fields: [user_id], references: [id]) // Order owner / 注文者
+  order_items      OrderItem[]           // Items in order / 注文アイテム
+  status_history   OrderStatusHistory[]  // Status change history / ステータス変更履歴
+  inventory_history InventoryHistory[]   // Related inventory changes / 関連在庫変更
+
   @@map("orders")
 }
 
@@ -118,10 +130,55 @@ model OrderItem {
   food_id  Int   // Food ID / 食品ID
   quantity Int   // Quantity / 数量
   price    Float // Price at order time / 注文時の価格
-  
+
   // Relations / リレーション
   order    Order @relation(fields: [order_id], references: [id]) // Parent order / 親注文
   food     Food  @relation(fields: [food_id], references: [id]) // Food item / 食品アイテム
-  
+
   @@map("order_items")
+}
+
+// Order status history table / 注文ステータス履歴テーブル
+model OrderStatusHistory {
+  id              Int      @id @default(autoincrement())
+  order_id        Int      // Order ID / 注文ID
+  previous_status String   // Previous status / 前のステータス
+  new_status      String   // New status / 新しいステータス
+  updated_by      Int      // Updated by user ID / 更新者のユーザーID
+  updated_at      DateTime @default(now()) // Updated at / 更新日時
+  note            String?  // Status change note / ステータス変更備考
+
+  // Relations / リレーション
+  order           Order    @relation(fields: [order_id], references: [id]) // Parent order / 親注文
+  updated_by_user User     @relation(fields: [updated_by], references: [id]) // User who updated / 更新者
+
+  // Indexes for performance / パフォーマンス用インデックス
+  @@index([order_id])
+  @@index([updated_at])
+  @@map("order_status_history")
+}
+
+// Inventory history table / 在庫履歴テーブル
+model InventoryHistory {
+  id              Int      @id @default(autoincrement())
+  food_id         Int      // Food ID / 食品ID
+  change_type     String   // Change type: add, subtract, reserve, release / 変更種別
+  quantity        Int      // Quantity changed / 変更数量
+  previous_stock  Int      // Stock before change / 変更前在庫
+  new_stock       Int      // Stock after change / 変更後在庫
+  order_id        Int?     // Related order ID (optional) / 関連注文ID（任意）
+  created_by      Int      // User who made the change / 変更実行者
+  created_at      DateTime @default(now()) // Created at / 作成日時
+  note            String?  // Additional notes / 追加メモ
+
+  // Relations / リレーション
+  food            Food     @relation(fields: [food_id], references: [id]) // Related food / 関連食品
+  order           Order?   @relation(fields: [order_id], references: [id]) // Related order / 関連注文
+  created_by_user User     @relation(fields: [created_by], references: [id]) // User who created / 作成者
+
+  // Indexes for performance / パフォーマンス用インデックス
+  @@index([food_id])
+  @@index([created_at])
+  @@index([change_type])
+  @@map("inventory_history")
 }

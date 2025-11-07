@@ -22,18 +22,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-# Node.js
-node_modules/
-.env
-
-# 構建文件
-/dist
-/build
-
-# IDE 文件
-.idea/
-.vscode/
-
-# 其他
-.DS_Store

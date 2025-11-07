@@ -1,72 +1,99 @@
-import type { Request } from 'express';
-import type { User } from '@prisma/client';
+// 共通型 （APIレスポンス、エラーハンドリング等）
+export * from './common';
 
-// 認証済みユーザー情報を含むリクエスト型
-export interface AuthRequest extends Request {
-    user?: User; // Prismaで生成されたUser型を使用
-}
-// ファイルアップロード用のリクエスト型
-export interface FileRequest extends Request {
-  file?: {
-    originalname: string;
-    buffer: Buffer;
-  };
-  user?: User; // 管理者権限が必要な場合に使用
-}
+// 認証関連型（AuthRequest, LoginData, TokenRefreshData等）
+export * from './auth';
 
-// API共通レスポンス型
-export interface ApiResponse<T = any> {
-    success: boolean;
-    message?: string;
-    data?: T;
-    pagination?: {
-        page: number;
-        pageSize: number;
-        total: number;
-        totalPages: number;
-    };
-}
+// ユーザー関連型 （UserProfile, UpdateUserData等）
+export * from './user';
 
-// ページネーション用クエリパラメータ
-export interface PaginationQuery {
-    page?: number; // 現在のページ番号
-    pageSize?: number; // 1ページあたりのアイテム数
-}
+// カテゴリー関連型 (CategoryItem, CreateCategoryData等)
+export * from './category';
 
-// 食品フィルタリング用クエリパラメータ
-export interface FoodFilterQuery extends PaginationQuery {
-    category_id?: string; // カテゴリID
-    search?: string; // 検索キーワード
-    price_min?: string; // 最低価格
-    price_max?: string; // 最高価格
-}
+// 商品関連型 (FoodItem, CreateFoodData, UpdateFoodData等)
+export * from './food';
 
-// カート商品追加リクエスト
-export interface AddToCartRequest {
-    food_id: number; // 食品ID
-    quantity: number; // 数量
-}
+// 公開API用型（敏感情報を除外）
+export type {
+        PublicFood,
+        PublicFoodWithCategory,
+        PublicFoodSearchResult,
+        FoodAvailability,
+        CartFoodInfo,
+} from './public';
 
-// カート商品数量更新リクエスト
-export interface UpdateCartItemRequest {
-    quantity: number; // 更新後の数量
-}
+// 公開API変換関数
+export {
+        toPublicFood,
+        toPublicFoodWithCategory,
+        toPublicFoodArray,
+        createAvailability,
+} from './public';
 
-// 注文作成リクエスト
-export interface CreateOrderRequest {
-    delivery_address: string; // 配送先住所
-    phone: string; // 電話番号
-    notes?: string; // 注文に関する特記事項
-}
+// ファイル関連型
+export * from './file';
 
-// 注文ステータス更新リクエスト（管理者用）
-export interface UpdateOrderStatusRequest {
-    status: 'pending' | 'confirmed' | 'preparing' | 'delivery' | 'completed' | 'cancelled';
-}
+// カート関連型 (CartItem, AddToCartData, UpdateCartData等)
+export * from './cart';
 
-// JWTペイロード型
-export interface JwtPayload {
-    id: number; // ユーザーID
-    iat?: number; // 発行日時
-    exp?: number; // 有効期限
-}
+// 注文関連型 (OrderItem, CreateOrderData, UpdateOrderStatusData等)
+export * from './order';
+
+// 在庫管理関連型 (InventoryHistory, StockInfo, UpdateStockRequest等)
+export * from './inventory';
+
+// ユーティリティ型 （PaginationQuery, SortQuery, SearchQuery等）
+export type { PaginationQuery, SortQuery, SearchQuery, BaseQuery } from './utils/pagination';
+export type { CreateFoodSchema, PaginationSchema } from './utils/validation';
+
+// API関連型 （リクエスト、レスポンス、クエリパラメータ等）
+export type {
+        FileRequest,
+        ParamsRequest,
+        QueryRequest,
+        BodyRequest,
+        FullRequest,
+        IdParams
+} from './api/request';
+
+// API完整応答型（success, message, data構造を含む）
+export type {
+        AuthSuccessResponse,
+        TokenRefreshResponse,
+        UserProfileResponse,
+        FoodItemResponse,
+        FoodListResponse,
+        CategoryResponse,
+        CategoryListResponse,
+        FileUploadResponse
+} from './api/response';
+
+// APIクエリパラメータ型（フィルタリング、ソート、ページネーション等）
+export type {
+        FoodSearchQuery,
+        CategorySearchQuery,
+        UserSearchQuery,
+        OrderQuery,
+        CartSearchQuery,
+        AdminStatsQuery,
+        DateRangeQuery,
+        PriceRangeQuery,
+        StatusFilterQuery,
+        SortOnlyQuery,
+        CombinedFilterQuery,
+        SearchOptionsQuery,
+        ExportQuery
+} from './api/query';
+
+// Prisma型の再エクスポート
+export type {
+        User,
+        Category,
+        Food,
+        Cart,
+        CartItem,
+        Order,
+        OrderItem,
+        InventoryHistory,
+        Prisma
+} from '@prisma/client';

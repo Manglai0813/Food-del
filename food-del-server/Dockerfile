@@ -1,26 +1,48 @@
-# food-del Server Container - Bun + Express + TypeScript
-# Bun + Express + TypeScript 用のサーバーコンテナ
+# ステージ1: ビルダー。依存関係のインストールとアプリケーションのビルドを行います。
+FROM oven/bun:alpine AS builder
 
-FROM oven/bun:alpine
-
-# 设置工作目录 / 作業ディレクトリ設定
 WORKDIR /app
 
-# 复制package文件 / packageファイルのコピー
+# 依存関係のファイルを先にコピーして、Dockerのレイヤーキャッシュを活用します。
 COPY package*.json ./
 COPY bun.lockb* ./
 
-# 安装依赖 / 依存関係インストール
+# 開発依存関係を含むすべての依存関係をインストールします。
 RUN bun install
 
-# 复制源代码 / ソースコードのコピー
+# 全てのソースコードをコピーします。
 COPY . .
 
-# 生成Prisma客户端 / Prismaクライアント生成
+# Prismaクライアントを生成します。
 RUN bunx prisma generate
 
-# 暴露Express服务器端口 / Expressサーバーポート公開
+# アプリケーションをビルドし、`dist`ディレクトリを生成します。
+RUN bun run build
+
+
+# ステージ2: ランナー。最終的な軽量イメージを作成します。
+FROM oven/bun:alpine
+
+WORKDIR /app
+
+# 本番用の依存関係のみをインストールします。
+COPY package*.json bun.lockb* ./
+RUN bun install --production
+
+# ビルダー段階からビルドされたJavaScriptコードのみをコピーします。
+COPY --from=builder /app/dist ./dist
+
+# 実行時に必要なPrismaスキーマファイルをコピーします。
+COPY --from=builder /app/prisma ./prisma
+
+# 実行時に必要な生成済みPrismaクライアントをコピーします。
+COPY --from=builder /app/node_modules/.prisma/client ./node_modules/.prisma/client
+
+# 事前に用意した静的画像ファイルをコンテナにコピーします。
+COPY ./storage /app/storage
+
+# アプリケーションが使用するポートを公開します。
 EXPOSE 5000
 
-# 启动开发服务器 / 開発サーバー起動
-CMD ["bun", "--watch", "index.ts"]
+# コンテナ起動時に、コンパイル済みのJavaScriptファイルを実行します。
+CMD ["bun", "dist/index.js"]
