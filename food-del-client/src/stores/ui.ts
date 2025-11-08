@@ -19,13 +19,25 @@ export interface Toast {
         };
 }
 
+/**
+ * モーダルコンポーネント型
+ */
 export interface Modal {
+        // モーダルの一意識別子
         id: string;
-        component: React.ComponentType<any>;
-        props?: Record<string, any>;
+        // モーダルで表示するコンポーネント
+        component: React.ComponentType<Record<string, unknown>>;
+        // コンポーネントに渡すプロップス
+        props?: Record<string, unknown>;
+        // モーダル閉じる時のコールバック
         onClose?: () => void;
 }
 
+/**
+ * UI状態インターフェース
+ *
+ * モーダル、ローディング、通知、フィルターなどのUI全体の状態を管理します。
+ */
 interface UIState {
         // ローディング状態
         isLoading: boolean;
@@ -44,11 +56,19 @@ interface UIState {
         searchQuery: string;
         isSearchFocused: boolean;
 
-        // フィルター状態
-        activeFilters: Record<string, any>;
+        // フィルター状態（キーと値のペア）
+        activeFilters: Record<string, unknown>;
 
         // アクション
+
+        /**
+         * ローディング状態設定
+         */
         setLoading: (loading: boolean, message?: string) => void;
+
+        /**
+         * サイドバートグル
+         */
         toggleSidebar: () => void;
         openSidebar: () => void;
         closeSidebar: () => void;
@@ -69,7 +89,7 @@ interface UIState {
         clearSearch: () => void;
 
         // フィルター管理
-        setFilter: (key: string, value: any) => void;
+        setFilter: (key: string, value: unknown) => void;
         removeFilter: (key: string) => void;
         clearFilters: () => void;
 }

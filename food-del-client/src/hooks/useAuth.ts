@@ -56,10 +56,10 @@ export function useAuth() {
                 onSuccess: (response) => {
                         if (response.success && response.data) {
                                 // Zustand storeに認証情報を保存
+                                // 【注意】refreshTokenはサーバーがHttpOnly Cookieで自動管理
                                 setAuth({
                                         user: response.data.user,
                                         token: response.data.token,
-                                        refreshToken: response.data.refreshToken,
                                 });
                                 // プロフィールキャッシュを更新
                                 queryClient.setQueryData(AUTH_KEYS.profile, response.data.user);
@@ -80,10 +80,10 @@ export function useAuth() {
                 onSuccess: (response) => {
                         if (response.success && response.data) {
                                 // Zustand storeに認証情報を保存
+                                // 【注意】refreshTokenはサーバーがHttpOnly Cookieで自動管理
                                 setAuth({
                                         user: response.data.user,
                                         token: response.data.token,
-                                        refreshToken: response.data.refreshToken,
                                 });
                                 // プロフィールキャッシュを設定
                                 queryClient.setQueryData(AUTH_KEYS.profile, response.data.user);
@@ -156,27 +156,31 @@ export function useAuth() {
         };
 }
 
-// トークン管理フック
+/**
+ * トークン管理フック
+ *
+ * 【注意】refreshTokenはサーバーがHttpOnly Cookieで自動管理するため、
+ * クライアント側での明示的なトークン更新は不要になりました。
+ * このフックは互換性のため残されていますが、通常は使用しません。
+ */
 export function useToken() {
         const queryClient = useQueryClient();
-        const { setTokens, clearAuth } = useAuthStore();
+        const { setToken, clearAuth } = useAuthStore();
 
-        // リフレッシュトークンによる自動更新
+        // トークン更新（互換性維持）
         const refreshTokenMutation = useMutation({
                 mutationFn: (refreshToken: string) => authService.refreshToken({ refreshToken }),
                 onSuccess: (response) => {
                         if (response.success && response.data) {
-                                // Zustand storeにトークンを保存
-                                setTokens({
-                                        token: response.data.token,
-                                        refreshToken: response.data.refreshToken,
-                                });
+                                // Zustand storeにトークンを保存（メモリのみ）
+                                // refreshTokenはサーバーが HttpOnly Cookie で自動管理
+                                setToken(response.data.token);
                                 // ユーザー情報を再取得
                                 queryClient.invalidateQueries({ queryKey: AUTH_KEYS.profile });
                         }
                 },
                 onError: () => {
-                        // リフレッシュ失敗時はログアウト
+                        // トークン更新失敗時はログアウト
                         clearAuth();
                         queryClient.clear();
                 },

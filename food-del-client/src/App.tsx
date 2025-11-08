@@ -1,21 +1,19 @@
 /**
  * メインアプリケーションコンポーネント
+ *
  * ルーティング・プロバイダー・グローバル設定
+ *
+ * 【パフォーマンス最適化】
+ * - ルートベースの遅延ローディング（Route-based code splitting）
+ * - React.lazy() で各ページを動的インポート
+ * - Suspense で ローディング中の UI を表示
+ * - バンドルサイズを削減し、初期読み込み速度を向上
  */
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
-
-// ページコンポーネント
-import {
-        HomePageContainer,
-        CartPage,
-        PlaceOrderPage,
-        OrderSuccessPage,
-        MyOrdersPage,
-} from '@/pages';
 
 // プロバイダー
 import { AuthProvider } from '@/providers';
@@ -23,28 +21,87 @@ import { AuthProvider } from '@/providers';
 // ルート定数・React Query設定
 import { ROUTES, queryClient } from '@/lib';
 
+/**
+ * ページコンポーネント - 遅延ローディング
+ *
+ * 各ページは必要なときに動的にロードされます。
+ * これにより初期バンドルサイズが削減されます。
+ */
+const HomePageContainer = React.lazy(() => import('@/pages/food/HomePageContainer').then(m => ({ default: m.HomePageContainer })));
+const CartPage = React.lazy(() => import('@/pages/cart/CartPage').then(m => ({ default: m.CartPage })));
+const PlaceOrderPage = React.lazy(() => import('@/pages/order/PlaceOrderPage').then(m => ({ default: m.PlaceOrderPage })));
+const OrderSuccessPage = React.lazy(() => import('@/pages/order/OrderSuccessPage').then(m => ({ default: m.OrderSuccessPage })));
+const MyOrdersPage = React.lazy(() => import('@/pages/order/MyOrdersPage').then(m => ({ default: m.MyOrdersPage })));
+
+/**
+ * ローディング表示コンポーネント
+ *
+ * Suspense のフォールバックとして使用
+ */
+const PageLoadingFallback: React.FC = () => (
+        <div className="min-h-screen flex items-center justify-center bg-background">
+                <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                        <p className="text-muted-foreground">ページを読み込み中...</p>
+                </div>
+        </div>
+);
+
+/**
+ * 404ページコンポーネント
+ *
+ * 見つからないルートのフォールバック
+ */
+const NotFoundPage: React.FC = () => (
+        <div className="min-h-screen bg-muted flex items-center justify-center">
+                <div className="text-center">
+                        <div className="text-6xl font-bold text-primary mb-4">404</div>
+                        <h1 className="text-2xl font-semibold text-foreground mb-2">
+                                ページが見つかりません
+                        </h1>
+                        <p className="text-muted-foreground mb-6">
+                                お探しのページは存在しないか、移動された可能性があります
+                        </p>
+                        <button
+                                onClick={() => window.location.href = '/'}
+                                className="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors"
+                        >
+                                ホームに戻る
+                        </button>
+                </div>
+        </div>
+);
+
+/**
+ * メインアプリケーション
+ *
+ * すべてのページは Suspense でラップされています。
+ * ページコンポーネントのロード中に PageLoadingFallback が表示されます。
+ */
 function App() {
         return (
                 <QueryClientProvider client={queryClient}>
                         <AuthProvider>
                                 <Router>
                                         <div className="App">
-                                                <Routes>
-                                                        {/* メインページ */}
-                                                        <Route path={ROUTES.HOME} element={<HomePageContainer />} />
+                                                <Suspense fallback={<PageLoadingFallback />}>
+                                                        <Routes>
+                                                                {/* メインページ */}
+                                                                <Route path={ROUTES.HOME} element={<HomePageContainer />} />
 
-                                                        {/* カート・注文関連 */}
-                                                        <Route path={ROUTES.CART} element={<CartPage />} />
-                                                        <Route path={ROUTES.CHECKOUT} element={<PlaceOrderPage />} />
+                                                                {/* カート・注文関連 */}
+                                                                <Route path={ROUTES.CART} element={<CartPage />} />
+                                                                <Route path={ROUTES.CHECKOUT} element={<PlaceOrderPage />} />
 
-                                                        {/* 注文管理 */}
-                                                        <Route path={ROUTES.ORDER_SUCCESS} element={<OrderSuccessPage />} />
-                                                        <Route path={ROUTES.ORDERS} element={<MyOrdersPage />} />
+                                                                {/* 注文管理 */}
+                                                                <Route path={ROUTES.ORDER_SUCCESS} element={<OrderSuccessPage />} />
+                                                                <Route path={ROUTES.ORDERS} element={<MyOrdersPage />} />
 
-                                                        {/* 404・リダイレクト */}
-                                                        <Route path={ROUTES.NOT_FOUND} element={<NotFoundPage />} />
-                                                        <Route path="*" element={<Navigate to={ROUTES.NOT_FOUND} replace />} />
-                                                </Routes>
+                                                                {/* 404・リダイレクト */}
+                                                                <Route path={ROUTES.NOT_FOUND} element={<NotFoundPage />} />
+                                                                <Route path="*" element={<Navigate to={ROUTES.NOT_FOUND} replace />} />
+                                                        </Routes>
+                                                </Suspense>
 
                                                 {/* グローバルコンポーネント */}
                                                 <Toaster
@@ -65,28 +122,5 @@ function App() {
                 </QueryClientProvider>
         );
 }
-
-// 404ページコンポーネント
-const NotFoundPage: React.FC = () => {
-        return (
-                <div className="min-h-screen bg-muted flex items-center justify-center">
-                        <div className="text-center">
-                                <div className="text-6xl font-bold text-primary mb-4">404</div>
-                                <h1 className="text-2xl font-semibold text-foreground mb-2">
-                                        ページが見つかりません
-                                </h1>
-                                <p className="text-muted-foreground mb-6">
-                                        お探しのページは存在しないか、移動された可能性があります
-                                </p>
-                                <button
-                                        onClick={() => window.location.href = '/'}
-                                        className="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors"
-                                >
-                                        ホームに戻る
-                                </button>
-                        </div>
-                </div>
-        );
-};
 
 export default App;

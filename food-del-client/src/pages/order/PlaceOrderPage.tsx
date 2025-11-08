@@ -69,10 +69,23 @@ export const PlaceOrderPage: React.FC = () => {
                         showSuccess('Order placed successfully!');
 
                         // 成功したら注文IDと共に成功ページへ
-                        navigate(`/order-success?id=${response.data.id}`);
-                } catch (error: any) {
+                        navigate(`/order-success?id=${response.data?.id}`);
+                } catch (error: unknown) {
                         console.error('注文エラー:', error);
-                        showError(error?.response?.data?.message || 'Failed to place order. Please try again.');
+                        let errorMessage = 'Failed to place order. Please try again.';
+                        if (error instanceof Error) {
+                                errorMessage = error.message;
+                        } else if (typeof error === 'object' && error !== null) {
+                                const errRecord = error as Record<string, unknown>;
+                                const responseData = errRecord.response as Record<string, unknown>;
+                                if (responseData && typeof responseData === 'object') {
+                                        const dataObj = responseData.data as Record<string, unknown>;
+                                        if (dataObj && typeof dataObj.message === 'string') {
+                                                errorMessage = dataObj.message;
+                                        }
+                                }
+                        }
+                        showError(errorMessage);
                 } finally {
                         setIsSubmitting(false);
                 }

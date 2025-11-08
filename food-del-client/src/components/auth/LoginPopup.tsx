@@ -58,8 +58,21 @@ export const LoginPopup: React.FC<LoginPopupProps> = ({ setShowLogin }) => {
                                 });
                         }
                         setShowLogin(false);
-                } catch (error: any) {
-                        alert(error?.response?.data?.message || 'An error occurred');
+                } catch (error: unknown) {
+                        let errorMessage = 'An error occurred';
+                        if (error instanceof Error) {
+                                errorMessage = error.message;
+                        } else if (typeof error === 'object' && error !== null) {
+                                const errRecord = error as Record<string, unknown>;
+                                const responseData = errRecord.response as Record<string, unknown>;
+                                if (responseData && typeof responseData === 'object') {
+                                        const dataObj = responseData.data as Record<string, unknown>;
+                                        if (dataObj && typeof dataObj.message === 'string') {
+                                                errorMessage = dataObj.message;
+                                        }
+                                }
+                        }
+                        alert(errorMessage);
                 }
         };
 
