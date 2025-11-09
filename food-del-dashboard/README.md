@@ -345,8 +345,3 @@ UPDATE users SET role = 'admin' WHERE email = 'your-email@example.com';
 1. 依存関係が正しくインストールされているか確認
 2. TypeScriptの型エラーを確認
 3. `bun run build` で詳細なエラーメッセージを確認
-
-## ライセンス
-
-Private
-
