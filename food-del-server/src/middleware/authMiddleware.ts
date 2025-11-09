@@ -1,306 +1,176 @@
 import type { Response, NextFunction } from 'express';
-import type { AuthRequest, ApiResponse } from '@/types';
+import type { AuthRequest, ApiResponse, UserResponse } from '@/types';
 import { isJwtPayload } from '@/types';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
 import { env } from '@/lib/env';
 
-/**
- * ユーザー認証ミドルウェア
- * すべてのログインユーザー用
- */
+// ユーザー選択フィールド
+const USER_SELECT_FIELDS = {
+    id: true,
+    name: true,
+    email: true,
+    role: true,
+    phone: true,
+    created_at: true,
+    updated_at: true
+} as const;
+
+// JWT トークンを検証し、ペイロードを返す`
+function verifyJWTToken(authHeader: string | undefined): jwt.JwtPayload {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        throw new Error('アクセストークンが必要です');
+    }
+
+    // Bearer トークンを抽出
+    const token = authHeader.split(' ')[1];
+
+    if (!token) {
+        throw new Error('トークンが無効です');
+    }
+
+    // トークンを検証
+    const decoded = jwt.verify(token, env.JWT_SECRET);
+
+    if (!isJwtPayload(decoded)) {
+        throw new Error('無効なトークンペイロードです');
+    }
+
+    return decoded;
+}
+
+// ユーザーIDからユーザー情報を取得
+async function getUserById(userId: number): Promise<UserResponse | null> {
+    return await prisma.user.findUnique({
+        where: { id: userId },
+        select: USER_SELECT_FIELDS
+    });
+}
+
+// 認証エラーを処理し、適切なレスポンスを返す
+function handleAuthError(
+    error: unknown,
+    res: Response<ApiResponse>
+): void {
+    if (error instanceof jwt.JsonWebTokenError) {
+        res.status(401).json({
+            success: false,
+            message: "トークンが無効です"
+        } as ApiResponse);
+        return;
+    }
+
+    if (error instanceof jwt.TokenExpiredError) {
+        res.status(401).json({
+            success: false,
+            message: "トークンの有効期限が切れています",
+            code: "TOKEN_EXPIRED"
+        } as ApiResponse);
+        return;
+    }
+
+    if (error instanceof Error) {
+        // カスタムエラーメッセージ
+        if (error.message === 'アクセストークンが必要です' ||
+            error.message === 'トークンが無効です' ||
+            error.message === '無効なトークンペイロードです') {
+            res.status(401).json({
+                success: false,
+                message: error.message
+            } as ApiResponse);
+            return;
+        }
+
+        if (error.message === 'ユーザーが見つかりません') {
+            res.status(404).json({
+                success: false,
+                message: error.message
+            } as ApiResponse);
+            return;
+        }
+    }
+
+    // その他のエラー
+    console.error('認証エラー:', error);
+    res.status(500).json({
+        success: false,
+        message: "サーバー内部エラー"
+    } as ApiResponse);
+}
+
+// ユーザーを認証し、ユーザー情報を返すユーティリティ関数
+async function authenticateUser(req: AuthRequest): Promise<UserResponse> {
+    const decoded = verifyJWTToken(req.headers.authorization);
+    const user = await getUserById(decoded.id);
+
+    if (!user) {
+        throw new Error('ユーザーが見つかりません');
+    }
+
+    return user;
+}
+
+// 認証ミドルウェア
 export const isAuthenticated = async (
-        req: AuthRequest,
-        res: Response,
-        next: NextFunction
+    req: AuthRequest,
+    res: Response<ApiResponse>,
+    next: NextFunction
 ): Promise<void> => {
-        try {
-                // Authorizationヘッダーを取得
-                const authHeader = req.headers.authorization;
-                if (!authHeader || !authHeader.startsWith('Bearer ')) {
-                        res.status(401).json({
-                                success: false,
-                                message: "アクセストークンが必要です"
-                        } as ApiResponse);
-                        return;
-                }
-
-                // JWTトークンを検証
-                const token = authHeader.split(' ')[1];
-                if (!token) {
-                        res.status(401).json({
-                                success: false,
-                                message: "トークンが無効です"
-                        } as ApiResponse);
-                        return;
-                }
-
-                const decoded = jwt.verify(token, env.JWT_SECRET);
-
-                // JWT验证类型安全检查
-                if (!isJwtPayload(decoded)) {
-                        res.status(401).json({
-                                success: false,
-                                message: "無効なトークンペイロードです"
-                        } as ApiResponse);
-                        return;
-                }
-
-                // ユーザー情報を取得
-                const user = await prisma.user.findUnique({
-                        where: { id: decoded.id },
-                        select: {
-                                id: true,
-                                name: true,
-                                email: true,
-                                role: true,
-                                phone: true,
-                                created_at: true,
-                                updated_at: true
-                                // パスワードは返却しない
-                        }
-                });
-
-                // ユーザーが存在しない場合はエラー
-                if (!user) {
-                        res.status(404).json({
-                                success: false,
-                                message: "ユーザーが見つかりません"
-                        } as ApiResponse);
-                        return;
-                }
-
-                // ユーザー情報をリクエストに追加
-                req.user = user;
-                next();
-
-        } catch (error) {
-                if (error instanceof jwt.JsonWebTokenError) {
-                        res.status(401).json({
-                                success: false,
-                                message: "トークンが無効です"
-                        } as ApiResponse);
-                        return;
-                }
-
-                if (error instanceof jwt.TokenExpiredError) {
-                        res.status(401).json({
-                                success: false,
-                                message: "トークンの有効期限が切れています",
-                                code: "TOKEN_EXPIRED"
-                        } as ApiResponse);
-                        return;
-                }
-
-                // 認証エラーをログ出力
-                console.error('認証エラー:', error);
-                res.status(500).json({
-                        success: false,
-                        message: "サーバー内部エラー"
-                } as ApiResponse);
-                return;
-        }
+    try {
+        const user = await authenticateUser(req);
+        req.user = user;
+        next();
+    } catch (error) {
+        handleAuthError(error, res);
+    }
 };
 
-/**
- * ユーザーが管理者であるか検証する（認証 + 権限チェック統合版）
- * JWT認証と管理者権限を同時にチェック
- */
+// 管理者権限チェックミドルウェア
 export const isAdmin = async (
-        req: AuthRequest,
-        res: Response,
-        next: NextFunction
+    req: AuthRequest,
+    res: Response<ApiResponse>,
+    next: NextFunction
 ): Promise<void> => {
-        try {
-                // まずJWT認証を実行
-                const authHeader = req.headers.authorization;
-                if (!authHeader || !authHeader.startsWith('Bearer ')) {
-                        res.status(401).json({
-                                success: false,
-                                message: "アクセストークンが必要です"
-                        } as ApiResponse);
-                        return;
-                }
+    try {
+        const user = await authenticateUser(req);
 
-                const token = authHeader.split(' ')[1];
-                if (!token) {
-                        res.status(401).json({
-                                success: false,
-                                message: "トークンが無効です"
-                        } as ApiResponse);
-                        return;
-                }
-
-                const decoded = jwt.verify(token, env.JWT_SECRET);
-
-                if (!isJwtPayload(decoded)) {
-                        res.status(401).json({
-                                success: false,
-                                message: "無効なトークンペイロードです"
-                        } as ApiResponse);
-                        return;
-                }
-
-                // ユーザー情報を取得
-                const user = await prisma.user.findUnique({
-                        where: { id: decoded.id },
-                        select: {
-                                id: true,
-                                name: true,
-                                email: true,
-                                role: true,
-                                phone: true,
-                                created_at: true,
-                                updated_at: true
-                        }
-                });
-
-                if (!user) {
-                        res.status(404).json({
-                                success: false,
-                                message: "ユーザーが見つかりません"
-                        } as ApiResponse);
-                        return;
-                }
-
-                // 管理者権限チェック
-                if (user.role !== 'admin') {
-                        res.status(403).json({
-                                success: false,
-                                message: "管理者権限が必要です",
-                                code: "INSUFFICIENT_PERMISSIONS"
-                        } as ApiResponse);
-                        return;
-                }
-
-                // ユーザー情報をリクエストに追加
-                req.user = user;
-                next();
-
-        } catch (error) {
-                if (error instanceof jwt.JsonWebTokenError) {
-                        res.status(401).json({
-                                success: false,
-                                message: "トークンが無効です"
-                        } as ApiResponse);
-                        return;
-                }
-
-                if (error instanceof jwt.TokenExpiredError) {
-                        res.status(401).json({
-                                success: false,
-                                message: "トークンの有効期限が切れています",
-                                code: "TOKEN_EXPIRED"
-                        } as ApiResponse);
-                        return;
-                }
-
-                console.error('認証エラー:', error);
-                res.status(500).json({
-                        success: false,
-                        message: "サーバー内部エラー"
-                } as ApiResponse);
-                return;
+        if (user.role !== 'admin') {
+            res.status(403).json({
+                success: false,
+                message: "管理者権限が必要です",
+                code: "INSUFFICIENT_PERMISSIONS"
+            } as ApiResponse);
+            return;
         }
+
+        req.user = user;
+        next();
+    } catch (error) {
+        handleAuthError(error, res);
+    }
 };
 
-/**
- * ユーザーが従業員（管理者またはスタッフ）であるか検証する（認証 + 権限チェック統合版）
- */
+// スタッフ権限チェックミドルウェア
 export const isStaff = async (
-        req: AuthRequest,
-        res: Response,
-        next: NextFunction
+    req: AuthRequest,
+    res: Response<ApiResponse>,
+    next: NextFunction
 ): Promise<void> => {
-        try {
-                // JWT認証を実行
-                const authHeader = req.headers.authorization;
-                if (!authHeader || !authHeader.startsWith('Bearer ')) {
-                        res.status(401).json({
-                                success: false,
-                                message: "アクセストークンが必要です"
-                        } as ApiResponse);
-                        return;
-                }
+    try {
+        const user = await authenticateUser(req);
 
-                const token = authHeader.split(' ')[1];
-                if (!token) {
-                        res.status(401).json({
-                                success: false,
-                                message: "トークンが無効です"
-                        } as ApiResponse);
-                        return;
-                }
-
-                const decoded = jwt.verify(token, env.JWT_SECRET);
-
-                if (!isJwtPayload(decoded)) {
-                        res.status(401).json({
-                                success: false,
-                                message: "無効なトークンペイロードです"
-                        } as ApiResponse);
-                        return;
-                }
-
-                // ユーザー情報を取得
-                const user = await prisma.user.findUnique({
-                        where: { id: decoded.id },
-                        select: {
-                                id: true,
-                                name: true,
-                                email: true,
-                                role: true,
-                                phone: true,
-                                created_at: true,
-                                updated_at: true
-                        }
-                });
-
-                if (!user) {
-                        res.status(404).json({
-                                success: false,
-                                message: "ユーザーが見つかりません"
-                        } as ApiResponse);
-                        return;
-                }
-
-                // スタッフ権限チェック
-                const allowedRoles = ['admin', 'staff'];
-                if (!allowedRoles.includes(user.role)) {
-                        res.status(403).json({
-                                success: false,
-                                message: "スタッフ権限が必要です"
-                        } as ApiResponse);
-                        return;
-                }
-
-                // ユーザー情報をリクエストに追加
-                req.user = user;
-                next();
-
-        } catch (error) {
-                if (error instanceof jwt.JsonWebTokenError) {
-                        res.status(401).json({
-                                success: false,
-                                message: "トークンが無効です"
-                        } as ApiResponse);
-                        return;
-                }
-
-                if (error instanceof jwt.TokenExpiredError) {
-                        res.status(401).json({
-                                success: false,
-                                message: "トークンの有効期限が切れています",
-                                code: "TOKEN_EXPIRED"
-                        } as ApiResponse);
-                        return;
-                }
-
-                console.error('認証エラー:', error);
-                res.status(500).json({
-                        success: false,
-                        message: "サーバー内部エラー"
-                } as ApiResponse);
-                return;
+        const allowedRoles = ['admin', 'staff'];
+        if (!allowedRoles.includes(user.role)) {
+            res.status(403).json({
+                success: false,
+                message: "スタッフ権限が必要です"
+            } as ApiResponse);
+            return;
         }
+
+        req.user = user;
+        next();
+    } catch (error) {
+        handleAuthError(error, res);
+    }
 };

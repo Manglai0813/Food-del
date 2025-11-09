@@ -1,7 +1,3 @@
-/**
- * lib層エントリーポイント
- */
-
 // 共通定数
 export * from './constants';
 
@@ -10,4 +6,6 @@ export * from './queryClient';
 
 // 共通ユーティリティ
 export * from './toast';
+
+// 共通ユーティリティ関数
 export * from './utils';

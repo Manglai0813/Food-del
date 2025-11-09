@@ -1,4 +1,4 @@
-# Logs
+# ログファイル
 logs
 *.log
 npm-debug.log*
@@ -7,12 +7,18 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# 依存関係とビルド出力
 node_modules
 dist
 dist-ssr
 *.local
 
-# Editor directories and files
+# 環境変数
+.env
+.env.local
+.env.*.local
+
+# エディタとIDE
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -22,3 +28,16 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# その他
+.cache
+.parcel-cache
+.eslintcache
+*.tsbuildinfo
+
+# パッケージマネージャーロックファイル
+# Bunを使用しているためbun.lockは保持その他のロックファイルは無視
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb

@@ -1,10 +1,5 @@
-/**
- * APIレスポンス型定義
- * バックエンドのcommon.tsに対応
- */
-
 // 基本APIレスポンス形式
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
         success: boolean;
         message: string;
         data?: T;

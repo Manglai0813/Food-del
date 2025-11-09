@@ -30,7 +30,7 @@ services:
     image: food-del-server
     container_name: food-del-server
     ports:
-      - "8000:5000"
+      - "5000:5000"
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - NODE_ENV=production
@@ -44,7 +44,6 @@ services:
     networks:
       - food-del-network
 
-
   # フロントエンドクライアント (React + Nginx)
   client:
     build:
@@ -55,8 +54,25 @@ services:
     image: food-del-client
     container_name: food-del-client
     ports:
-      # .envファイルからホストのポートを読み込み、コンテナの80ポート(Nginx)にマッピングします
-      - "${CLIENT_PORT}:80"
+      # ホストの3000ポートをコンテナの80ポート(Nginx)にマッピング
+      - "3000:80"
+    depends_on:
+      - server
+    networks:
+      - food-del-network
+
+  # ダッシュボード (React + Nginx)
+  dashboard:
+    build:
+      context: ./food-del-dashboard
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+    image: food-del-dashboard
+    container_name: food-del-dashboard
+    ports:
+      # ホストの3001ポートをコンテナの80ポート(Nginx)にマッピング
+      - "3001:80"
     depends_on:
       - server
     networks:

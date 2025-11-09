@@ -1,5 +1,2 @@
-/**
- * 認証関連コンポーネントエクスポート
- */
-
+// 認証コンポーネントのエクスポート
 export { LoginPopup } from './LoginPopup';

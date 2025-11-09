@@ -1,2 +1,2 @@
-// ダッシュボードページ統合：全ダッシュボードページをBarrel Export
+// ダッシュボードページのエクスポート
 export { default as DashboardPage } from './DashboardPage';

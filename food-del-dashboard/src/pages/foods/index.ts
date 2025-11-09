@@ -1,4 +1,8 @@
-// 商品ページ統合：全商品ページをBarrel Export
+// 商品詳細ページのエクスポート
 export { default as FoodDetailPage } from './FoodDetailPage';
+
+// 商品フォームページのエクスポート
 export { default as FoodFormPage } from './FoodFormPage';
+
+// 商品一覧ページのエクスポート
 export { default as FoodListPage } from './FoodListPage';

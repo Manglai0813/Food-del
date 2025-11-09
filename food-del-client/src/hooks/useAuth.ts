@@ -1,217 +1,225 @@
-/**
- * 認証関連カスタムフック
- * TanStack Queryを使用した認証状態管理
- */
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { authService, apiClient } from '@/api';
 import { useAuthStore, useCartStore } from '@/stores';
 import type {
-        LoginRequest,
-        RegisterRequest,
-        UpdateProfileRequest,
-        ChangePasswordRequest,
+    LoginRequest,
+    RegisterRequest,
+    UpdateProfileRequest,
+    ChangePasswordRequest,
 } from '@/types';
 
 // クエリキー
 const AUTH_KEYS = {
-        profile: ['auth', 'profile'] as const,
-        checkAuth: ['auth', 'check'] as const,
+    profile: ['auth', 'profile'] as const,
+    checkAuth: ['auth', 'check'] as const,
 } as const;
 
 // 認証状態フック
 export function useAuth() {
-        const queryClient = useQueryClient();
-        const { setAuth, clearAuth } = useAuthStore();
-        const token = useAuthStore((state) => state.token);
+    const queryClient = useQueryClient();
+    const { setAuth, clearAuth, user: persistedUser, setUser } = useAuthStore();
+    const token = useAuthStore((state) => state.token);
+    const hasCheckedAuthRef = useRef(false);
 
-        // プロフィール取得 - tokenがある場合のみ実行
-        const {
-                data: user,
-                isLoading: isCheckingAuth,
-                error: authError,
-        } = useQuery({
-                queryKey: AUTH_KEYS.profile,
-                queryFn: async () => {
-                        // queryFn実行時に改めてstoreからtokenを取得してapiClientに設定
-                        const currentToken = useAuthStore.getState().token;
-                        if (currentToken) {
-                                apiClient.setAuthToken(currentToken);
-                        }
-                        const response = await authService.getProfile();
-                        return response.data;
-                },
-                enabled: !!token, // tokenがある時だけクエリを実行
-                staleTime: 5 * 60 * 1000, // 5分間キャッシュ
-                retry: false,
-        });
+    // プロフィール取得クエリ
+    const {
+        data: user,
+        isLoading: isCheckingAuth,
+        error: authError,
+    } = useQuery({
+        queryKey: AUTH_KEYS.profile,
+        queryFn: async () => {
+            const currentToken = useAuthStore.getState().token;
+            if (currentToken) {
+                apiClient.setAuthToken(currentToken);
+            } else {
+                apiClient.setAuthToken(null);
+            }
+            const response = await authService.getProfile();
 
-        // 認証状態
-        const isAuthenticated = !!user;
-        const isAdmin = user?.role === 'admin';
+            if (response.success && response.data) {
+                const newToken = (response as unknown as { data?: { token?: string } }).data?.token;
+                if (newToken) {
+                    useAuthStore.getState().setToken(newToken);
+                }
+                setUser(response.data);
+            }
 
-        // ログイン
-        const loginMutation = useMutation({
-                mutationFn: (credentials: LoginRequest) => authService.login(credentials),
-                onSuccess: (response) => {
-                        if (response.success && response.data) {
-                                // Zustand storeに認証情報を保存
-                                // 【注意】refreshTokenはサーバーがHttpOnly Cookieで自動管理
-                                setAuth({
-                                        user: response.data.user,
-                                        token: response.data.token,
-                                });
-                                // プロフィールキャッシュを更新
-                                queryClient.setQueryData(AUTH_KEYS.profile, response.data.user);
-                                // 他のクエリを無効化（ユーザー固有データの再取得）
-                                queryClient.invalidateQueries({ queryKey: ['user-data'] });
-                        }
-                },
-                onError: () => {
-                        // エラー時は認証情報をクリア
-                        clearAuth();
-                        queryClient.removeQueries({ queryKey: AUTH_KEYS.profile });
-                },
-        });
+            return response.data;
+        },
+        enabled: !hasCheckedAuthRef.current && (!!persistedUser || !!token),
+        staleTime: 5 * 60 * 1000,
+        retry: false,
+    });
 
-        // 登録
-        const registerMutation = useMutation({
-                mutationFn: (userData: RegisterRequest) => authService.register(userData),
-                onSuccess: (response) => {
-                        if (response.success && response.data) {
-                                // Zustand storeに認証情報を保存
-                                // 【注意】refreshTokenはサーバーがHttpOnly Cookieで自動管理
-                                setAuth({
-                                        user: response.data.user,
-                                        token: response.data.token,
-                                });
-                                // プロフィールキャッシュを設定
-                                queryClient.setQueryData(AUTH_KEYS.profile, response.data.user);
-                                queryClient.invalidateQueries({ queryKey: ['user-data'] });
-                        }
-                },
-                onError: () => {
-                        // エラー時は認証情報をクリア
-                        clearAuth();
-                },
-        });
+    // 認証チェック完了後にフラグを設定
+    useEffect(() => {
+        if (!isCheckingAuth && (user || authError)) {
+            hasCheckedAuthRef.current = true;
+            if (authError) {
+                clearAuth();
+            }
+        }
+    }, [isCheckingAuth, user, authError, clearAuth]);
 
-        // ログアウト
-        const logoutMutation = useMutation({
-                mutationFn: () => authService.logout(),
-                onSettled: () => {
-                        // 成功・失敗に関わらず認証情報をクリア
-                        clearAuth();
-                        // カートデータもクリア
-                        useCartStore.getState().clearCart();
-                        // 全てのクエリキャッシュをクリア
-                        queryClient.clear();
-                },
-        });
+    // 認証状態
+    const isAuthenticated = !!user;
+    const isAdmin = user?.role === 'admin';
 
-        // プロフィール更新
-        const updateProfileMutation = useMutation({
-                mutationFn: (profileData: UpdateProfileRequest) => authService.updateProfile(profileData),
-                onSuccess: (response) => {
-                        if (response.success && response.data) {
-                                // プロフィールキャッシュを更新
-                                queryClient.setQueryData(AUTH_KEYS.profile, response.data);
-                        }
-                },
-        });
+    // ログイン
+    const loginMutation = useMutation({
+        mutationFn: (credentials: LoginRequest) => authService.login(credentials),
+        onSuccess: (response) => {
+            if (response.success && response.data) {
+                // Zustand storeに認証情報を保存
+                // 【注意】refreshTokenはサーバーがHttpOnly Cookieで自動管理
+                setAuth({
+                    user: response.data.user,
+                    token: response.data.token,
+                });
+                // プロフィールキャッシュを更新
+                queryClient.setQueryData(AUTH_KEYS.profile, response.data.user);
+                // 他のクエリを無効化（ユーザー固有データの再取得）
+                queryClient.invalidateQueries({ queryKey: ['user-data'] });
+            }
+        },
+        onError: () => {
+            // エラー時は認証情報をクリア
+            clearAuth();
+            queryClient.removeQueries({ queryKey: AUTH_KEYS.profile });
+        },
+    });
 
-        // パスワード変更
-        const changePasswordMutation = useMutation({
-                mutationFn: (passwordData: ChangePasswordRequest) => authService.changePassword(passwordData),
-        });
+    // 登録
+    const registerMutation = useMutation({
+        mutationFn: (userData: RegisterRequest) => authService.register(userData),
+        onSuccess: (response) => {
+            if (response.success && response.data) {
+                // Zustand storeに認証情報を保存
+                // 【注意】refreshTokenはサーバーがHttpOnly Cookieで自動管理
+                setAuth({
+                    user: response.data.user,
+                    token: response.data.token,
+                });
+                // プロフィールキャッシュを設定
+                queryClient.setQueryData(AUTH_KEYS.profile, response.data.user);
+                queryClient.invalidateQueries({ queryKey: ['user-data'] });
+            }
+        },
+        onError: () => {
+            // エラー時は認証情報をクリア
+            clearAuth();
+        },
+    });
 
-        return {
-                // 状態
-                user,
-                isAuthenticated,
-                isAdmin,
-                isCheckingAuth,
-                authError,
+    // ログアウト
+    const logoutMutation = useMutation({
+        mutationFn: () => authService.logout(),
+        onSettled: () => {
+            // 成功・失敗に関わらず認証情報をクリア
+            clearAuth();
+            // カートデータもクリア
+            useCartStore.getState().clearCart();
+            // 全てのクエリキャッシュをクリア
+            queryClient.clear();
+        },
+    });
 
-                // アクション
-                login: loginMutation.mutateAsync,
-                register: registerMutation.mutateAsync,
-                logout: logoutMutation.mutateAsync,
-                updateProfile: updateProfileMutation.mutateAsync,
-                changePassword: changePasswordMutation.mutateAsync,
+    // プロフィール更新
+    const updateProfileMutation = useMutation({
+        mutationFn: (profileData: UpdateProfileRequest) => authService.updateProfile(profileData),
+        onSuccess: (response) => {
+            if (response.success && response.data) {
+                // プロフィールキャッシュを更新
+                queryClient.setQueryData(AUTH_KEYS.profile, response.data);
+            }
+        },
+    });
 
-                // ローディング状態
-                isLoggingIn: loginMutation.isPending,
-                isRegistering: registerMutation.isPending,
-                isLoggingOut: logoutMutation.isPending,
-                isUpdatingProfile: updateProfileMutation.isPending,
-                isChangingPassword: changePasswordMutation.isPending,
+    // パスワード変更
+    const changePasswordMutation = useMutation({
+        mutationFn: (passwordData: ChangePasswordRequest) => authService.changePassword(passwordData),
+    });
 
-                // エラー状態
-                loginError: loginMutation.error,
-                registerError: registerMutation.error,
-                logoutError: logoutMutation.error,
-                updateProfileError: updateProfileMutation.error,
-                changePasswordError: changePasswordMutation.error,
-        };
+    return {
+        // 状態
+        user,
+        isAuthenticated,
+        isAdmin,
+        isCheckingAuth,
+        authError,
+
+        // アクション
+        login: loginMutation.mutateAsync,
+        register: registerMutation.mutateAsync,
+        logout: logoutMutation.mutateAsync,
+        updateProfile: updateProfileMutation.mutateAsync,
+        changePassword: changePasswordMutation.mutateAsync,
+
+        // ローディング状態
+        isLoggingIn: loginMutation.isPending,
+        isRegistering: registerMutation.isPending,
+        isLoggingOut: logoutMutation.isPending,
+        isUpdatingProfile: updateProfileMutation.isPending,
+        isChangingPassword: changePasswordMutation.isPending,
+
+        // エラー状態
+        loginError: loginMutation.error,
+        registerError: registerMutation.error,
+        logoutError: logoutMutation.error,
+        updateProfileError: updateProfileMutation.error,
+        changePasswordError: changePasswordMutation.error,
+    };
 }
 
-/**
- * トークン管理フック
- *
- * 【注意】refreshTokenはサーバーがHttpOnly Cookieで自動管理するため、
- * クライアント側での明示的なトークン更新は不要になりました。
- * このフックは互換性のため残されていますが、通常は使用しません。
- */
+// トークン管理フック
 export function useToken() {
-        const queryClient = useQueryClient();
-        const { setToken, clearAuth } = useAuthStore();
+    const queryClient = useQueryClient();
+    const { setToken, clearAuth } = useAuthStore();
 
-        // トークン更新（互換性維持）
-        const refreshTokenMutation = useMutation({
-                mutationFn: (refreshToken: string) => authService.refreshToken({ refreshToken }),
-                onSuccess: (response) => {
-                        if (response.success && response.data) {
-                                // Zustand storeにトークンを保存（メモリのみ）
-                                // refreshTokenはサーバーが HttpOnly Cookie で自動管理
-                                setToken(response.data.token);
-                                // ユーザー情報を再取得
-                                queryClient.invalidateQueries({ queryKey: AUTH_KEYS.profile });
-                        }
-                },
-                onError: () => {
-                        // トークン更新失敗時はログアウト
-                        clearAuth();
-                        queryClient.clear();
-                },
-        });
+    // トークン更新
+    const refreshTokenMutation = useMutation({
+        mutationFn: (refreshToken: string) => authService.refreshToken({ refreshToken }),
+        onSuccess: (response) => {
+            if (response.success && response.data) {
+                setToken(response.data.token);
+                queryClient.invalidateQueries({ queryKey: AUTH_KEYS.profile });
+            }
+        },
+        onError: () => {
+            // トークン更新失敗時はログアウト
+            clearAuth();
+            queryClient.clear();
+        },
+    });
 
-        return {
-                refreshToken: refreshTokenMutation.mutateAsync,
-                isRefreshing: refreshTokenMutation.isPending,
-                refreshError: refreshTokenMutation.error,
-        };
+    return {
+        refreshToken: refreshTokenMutation.mutateAsync,
+        isRefreshing: refreshTokenMutation.isPending,
+        refreshError: refreshTokenMutation.error,
+    };
 }
 
 // 認証ガードフック
 export function useRequireAuth() {
-        const { isAuthenticated, isCheckingAuth } = useAuth();
+    const { isAuthenticated, isCheckingAuth } = useAuth();
 
-        return {
-                isAuthenticated,
-                isCheckingAuth,
-                shouldShowLogin: !isCheckingAuth && !isAuthenticated,
-        };
+    return {
+        isAuthenticated,
+        isCheckingAuth,
+        shouldShowLogin: !isCheckingAuth && !isAuthenticated,
+    };
 }
 
 // 管理者権限フック
 export function useRequireAdmin() {
-        const { isAdmin, isCheckingAuth, isAuthenticated } = useAuth();
+    const { isAdmin, isCheckingAuth, isAuthenticated } = useAuth();
 
-        return {
-                isAdmin,
-                isCheckingAuth,
-                hasAccess: isAuthenticated && isAdmin,
-                shouldShowAccessDenied: !isCheckingAuth && (!isAuthenticated || !isAdmin),
-        };
+    return {
+        isAdmin,
+        isCheckingAuth,
+        hasAccess: isAuthenticated && isAdmin,
+        shouldShowAccessDenied: !isCheckingAuth && (!isAuthenticated || !isAdmin),
+    };
 }

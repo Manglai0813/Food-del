@@ -6,17 +6,14 @@ import './index.css';
 import App from './App.tsx';
 import { QueryProvider } from './lib/queryClient.tsx';
 
-/**
- * アプリケーションのエントリーポイント
- * TanStack Query統合済み
- */
+// アプリケーションのエントリーポイント
 createRoot(document.getElementById('root')!).render(
-        <StrictMode>
-                <QueryProvider>
-                        <BrowserRouter>
-                                <App />
-                        </BrowserRouter>
-                </QueryProvider>
-                <Toaster />
-        </StrictMode>,
-)
+    <StrictMode>
+        <QueryProvider>
+            <BrowserRouter>
+                <App />
+            </BrowserRouter>
+        </QueryProvider>
+        <Toaster />
+    </StrictMode>,
+);

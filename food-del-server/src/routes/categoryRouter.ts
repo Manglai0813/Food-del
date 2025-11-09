@@ -1,34 +1,41 @@
 import express, { Router } from "express";
 import {
-        getCategories,
-        getCategoryById,
-        getActiveCategories,
-        getCategoryFoods,
-        createCategory,
-        updateCategory,
-        updateCategoryStatus,
-        deleteCategory,
+    getCategories,
+    getCategoryById,
+    getActiveCategories,
+    getCategoryFoods,
+    createCategory,
+    updateCategory,
+    updateCategoryStatus,
+    deleteCategory,
 } from "@/controllers/categoryController";
 import { isAdmin } from "@/middleware/authMiddleware";
 
-// ルーターの初期化
+// カテゴリールーターの作成
 const categoryRouter: Router = express.Router();
 
-/**
- * カテゴリルーター
- * カテゴリ管理のためのAPIエンドポイントを提供します
- */
+// すべてのカテゴリーを取得
+categoryRouter.get("/", getCategories);
 
-// 公開エンドポイント
-categoryRouter.get("/", getCategories); // 全カテゴリを取得（クエリパラメータでフィルタ可能）
-categoryRouter.get("/active", getActiveCategories); // 有効なカテゴリのみを取得
-categoryRouter.get("/:id/foods", getCategoryFoods); // カテゴリ下の商品を取得
-categoryRouter.get("/:id", getCategoryById); // IDでカテゴリを取得
+// アクティブなカテゴリーを取得
+categoryRouter.get("/active", getActiveCategories);
 
-// 管理者専用エンドポイント
-categoryRouter.post("/", isAdmin, createCategory); // カテゴリを作成
-categoryRouter.put("/:id", isAdmin, updateCategory); // カテゴリを更新
-categoryRouter.patch("/:id/status", isAdmin, updateCategoryStatus); // カテゴリステータスを更新
-categoryRouter.delete("/:id", isAdmin, deleteCategory); // カテゴリを削除
+// 指定されたカテゴリーの食品を取得
+categoryRouter.get("/:id/foods", getCategoryFoods);
+
+//  IDでカテゴリーを取得
+categoryRouter.get("/:id", getCategoryById);
+
+// 新しいカテゴリーを作成
+categoryRouter.post("/", isAdmin, createCategory);
+
+// 既存のカテゴリーを更新
+categoryRouter.put("/:id", isAdmin, updateCategory);
+
+//  カテゴリーのステータスを更新
+categoryRouter.patch("/:id/status", isAdmin, updateCategoryStatus);
+
+// カテゴリーを削除
+categoryRouter.delete("/:id", isAdmin, deleteCategory);
 
 export default categoryRouter;

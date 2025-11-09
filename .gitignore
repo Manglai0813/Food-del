@@ -1,0 +1,21 @@
+# ローカルドキュメント これはローカルファイルです
+docs/
+
+# 環境変数ファイル
+.env
+.env.local
+.env.*.local
+
+# OSファイル
+.DS_Store
+Thumbs.db
+
+# エディタディレクトリ
+.vscode
+.idea
+
+# 一時ファイル
+*.tmp
+*.swp
+*.swo
+*~

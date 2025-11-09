@@ -1,22 +1,28 @@
 import type { Request, Response, NextFunction } from 'express';
 import type { ApiResponse } from '@/types';
 
-/**
- * グローバルエラーハンドリングミドルウェア
- * 全てのエラーを統一フォーマットで処理
- */
+// 汎用エラーハンドラーミドルウェア
 export const errorHandler = (
-        error: any,
-        _req: Request,
-        res: Response,
-        _next: NextFunction
+    error: unknown,
+    _req: Request,
+    res: Response,
+    _next: NextFunction
 ): void => {
-        const statusCode = error.statusCode || 500;
-        const message = error.message || 'サーバー内部エラー';
+    // エラーからステータスコードとメッセージを抽出
+    const statusCode = (error && typeof error === 'object' && 'statusCode' in error && typeof error.statusCode === 'number')
+        ? error.statusCode
+        : 500;
 
-        res.status(statusCode).json({
-                success: false,
-                message,
-                ...(error.code && { code: error.code })
-        } as ApiResponse);
+    // エラーメッセージを設定
+    const message = (error instanceof Error) ? error.message : 'サーバー内部エラー';
+
+    // レスポンスオブジェクトを作成して送信
+    const response: ApiResponse<null> = {
+        success: false,
+        message
+    };
+    if (error && typeof error === 'object' && 'code' in error) {
+        response.code = String(error.code);
+    }
+    res.status(statusCode).json(response);
 };

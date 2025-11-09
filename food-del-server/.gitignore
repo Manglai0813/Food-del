@@ -1,34 +1,53 @@
-# dependencies (bun install)
+# 依存関係
 node_modules
 
-# output
+# ビルド出力
 out
 dist
 *.tgz
 
-# code coverage
+# コードカバレッジ
 coverage
 *.lcov
 
-# logs
+# ログファイル
 logs
 _.log
 report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
-# dotenv environment variable files
+# 環境変数ファイル
 .env
 .env.development.local
 .env.test.local
 .env.production.local
 .env.local
 
-# caches
+# キャッシュ
 .eslintcache
 .cache
 *.tsbuildinfo
 
-# IntelliJ based IDEs
+# IntelliJベースのIDE
 .idea
 
-# Finder (MacOS) folder config
+# Finder MacOSフォルダ設定
 .DS_Store
+
+# パッケージマネージャーロックファイル
+# Bunを使用しているためbun.lockは保持その他のロックファイルは無視
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# その他の一時ファイル
+*.swp
+*.swo
+*~
+
+# エディタディレクトリ
+.vscode
+.idea
+
+# OSファイル
+Thumbs.db

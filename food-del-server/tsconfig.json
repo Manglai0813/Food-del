@@ -1,41 +1,40 @@
 {
-        "compilerOptions": {
-                // 環境設定と最新機能
-                "lib": [
-                        "esnext"
-                ],
-                "target": "ESNext",
-                "module": "ESNext",
-                "moduleDetection": "force",
-                "jsx": "react-jsx",
-                "allowJs": true,
-                // バンドラーモード
-                "moduleResolution": "bundler",
-
-                "verbatimModuleSyntax": true,
-                "outDir": "./dist",
-                "rootDir": ".",
-                // ベストプラクティス
-                "strict": true,
-                "skipLibCheck": true,
-                "noFallthroughCasesInSwitch": true,
-                "noUncheckedIndexedAccess": true,
-                // より厳格なフラグ（デフォルトは無効）
-                "noUnusedLocals": false,
-                "noUnusedParameters": false,
-                "noPropertyAccessFromIndexSignature": false,
-                // パスエイリアスとルートディレクトリの設定
-                "baseUrl": ".",
-                "paths": {
-                        "@/*": [
-                                "src/*"
-                        ],
-                        "@/types/*": [
-                                "src/types/*"
-                        ],
-                        "@/types": [
-                                "src/types/index"
-                        ]
-                }
+    "compilerOptions": {
+        // 環境設定と最新機能
+        "lib": [
+            "esnext"
+        ],
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleDetection": "force",
+        "jsx": "react-jsx",
+        "allowJs": true,
+        // バンドラーモード
+        "moduleResolution": "bundler",
+        "verbatimModuleSyntax": true,
+        "outDir": "./dist",
+        "rootDir": ".",
+        // ベストプラクティス
+        "strict": true,
+        "skipLibCheck": true,
+        "noFallthroughCasesInSwitch": true,
+        "noUncheckedIndexedAccess": true,
+        // より厳格なフラグ（デフォルトは無効）
+        "noUnusedLocals": false,
+        "noUnusedParameters": false,
+        "noPropertyAccessFromIndexSignature": false,
+        // パスエイリアスとルートディレクトリの設定
+        "baseUrl": ".",
+        "paths": {
+            "@/*": [
+                "src/*"
+            ],
+            "@/types/*": [
+                "src/types/*"
+            ],
+            "@/types": [
+                "src/types/index"
+            ]
         }
+    }
 }

@@ -10,33 +10,27 @@ import categoryRouter from './src/routes/categoryRouter';
 import orderRouter from './src/routes/orderRouter';
 import { errorHandler } from './src/middleware/errorHandler';
 import { fileAccessMiddleware } from './src/middleware/fileAccess';
-
-// セキュリティミドルウェア
 import {
-        securityHeaders,
-        customSecurityHeaders,
-        securityAuditHeaders,
-        enhancedCorsHeaders
+    securityHeaders,
+    customSecurityHeaders,
+    securityAuditHeaders,
+    enhancedCorsHeaders
 } from './src/middleware/securityHeaders';
-
-// レート制限ミドルウェア
 import { generalRateLimit } from './src/middleware/rateLimiting';
-
-// リクエスト制御ミドルウェア
 import {
-        requestTimeout,
-        requestMonitoring,
-        requestSizeLimits,
-        requestControlErrorHandler
+    requestTimeout,
+    requestMonitoring,
+    requestSizeLimits,
+    requestControlErrorHandler
 }
-from './src/middleware/requestControl';
+    from './src/middleware/requestControl';
 
 // アプリケーション設定
 const app: Express = express();
 
-// セキュリティミドルウェアの適用（順序重要）
+// セキュリティミドルウェアの適用
 
-// 1. セキュリティヘッダー設定（最初に適用）
+// 1. セキュリティヘッダー設定
 app.use(securityHeaders);
 app.use(customSecurityHeaders);
 app.use(securityAuditHeaders);
@@ -46,31 +40,32 @@ app.use(enhancedCorsHeaders);
 
 // 開発環境では複数のOriginを許可
 const corsOrigins = env.NODE_ENV === 'development'
-        ? ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://127.0.0.1:3001']
-        : env.CORS_ALLOWED_ORIGINS;
+    ? ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://127.0.0.1:3001']
+    : env.CORS_ALLOWED_ORIGINS;
 
+// CORSミドルウェアの適用
 app.use(cors({
-        origin: corsOrigins,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
-        credentials: env.CORS_ALLOW_CREDENTIALS,
-        maxAge: 86400
+    origin: corsOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: env.CORS_ALLOW_CREDENTIALS,
+    maxAge: 86400
 }));
 
 // 3. リクエスト監視とタイムアウト制御
 app.use(requestMonitoring);
 app.use(requestTimeout(30000)); // 30秒タイムアウト
 
-// 4. 一般的なレート制限（すべてのAPIに適用）
+// 4. 一般的なレート制限、すべてのAPIに適用）
 app.use('/api/', generalRateLimit);
 
-// 5. JSON/URL-encodedパーサー（サイズ制限付き）
+// 5. JSON/URL-encodedパーサー、サイズ制限付き
 app.use(express.json(requestSizeLimits.json));
 app.use(express.urlencoded(requestSizeLimits.urlencoded));
 app.use(express.raw(requestSizeLimits.raw));
 app.use(express.text(requestSizeLimits.text));
 
-// 6. ファイルアクセス（既存）
+// 6. ファイルアクセスミドルウェア
 app.use('/files', fileAccessMiddleware);
 
 // APIエンドポイント
@@ -82,17 +77,17 @@ app.use('/api/orders', orderRouter);
 
 // テストルーター
 app.get('/', (_req: Request, res: Response) => {
-        res.json({ message: 'Welcome to Food Delivery API' });
+    res.json({ message: 'Welcome to Food Delivery API' });
 });
 
-// グローバルエラーハンドラー
-app.use(requestControlErrorHandler); // リクエスト制御関連エラー
-app.use(errorHandler); // 一般的なエラーハンドラー
+// エラーハンドリングミドルウェア
+app.use(requestControlErrorHandler);
+app.use(errorHandler);
 
 // サーバー起動
 const PORT: number = env.PORT;
 app.listen(PORT, () => {
-        console.log(`Server is running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
 });
 
 export default app;

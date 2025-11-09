@@ -103,14 +103,14 @@ export interface BulkStockUpdateRequest {
         operation: 'add' | 'subtract';
         note?: string;
     }>;
-    reason?: string; // 一括更新の理由
+    reason?: string;
 }
 
 // 在庫調整リクエスト型
 export interface StockAdjustmentRequest {
     foodId: number;
-    newStock: number;  // 新しい在庫数
-    reason: string;    // 調整理由
+    newStock: number;
+    reason: string;
 }
 
 // 在庫検証結果型

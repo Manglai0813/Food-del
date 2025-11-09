@@ -1,12 +1,8 @@
 import { prisma } from '@/lib/prisma';
-import type { InventoryHistory } from '@prisma/client';
+import type { Prisma, InventoryHistory } from '@prisma/client';
 
-/**
- * 在庫管理サービス
- * 食品の在庫管理、楽観的ロック、在庫履歴記録を提供します
- */
+// 在庫サービスクラス
 export class InventoryService {
-
     // 在庫変更の種別
     static readonly CHANGE_TYPES = {
         ADD: 'add',           // 在庫追加
@@ -15,9 +11,7 @@ export class InventoryService {
         RELEASE: 'release'    // 予約解除
     } as const;
 
-    /**
-     * 楽観的ロックを使用した在庫更新
-     */
+    // 在庫更新
     static async updateStock(
         foodId: number,
         quantity: number,
@@ -106,10 +100,10 @@ export class InventoryService {
                     };
                 });
 
-            } catch (error: any) {
-                if (error.message === 'CONCURRENT_UPDATE' && retries < maxRetries - 1) {
+            } catch (error: unknown) {
+                if (error instanceof Error && error.message === 'CONCURRENT_UPDATE' && retries < maxRetries - 1) {
                     retries++;
-                    // 短時間待機してリトライ（指数バックオフ）
+                    // 短時間待機してリトライ
                     const delay = Math.random() * Math.pow(2, retries) * 50;
                     await new Promise(resolve => setTimeout(resolve, delay));
                     continue;
@@ -121,9 +115,7 @@ export class InventoryService {
         throw new Error('並行更新の競合により操作に失敗しました');
     }
 
-    /**
-     * 在庫予約（カート追加時など）
-     */
+    // 在庫予約
     static async reserveStock(
         foodId: number,
         quantity: number,
@@ -139,11 +131,11 @@ export class InventoryService {
                 status: boolean;
                 name: string;
             }>>`
-                SELECT id, stock, reserved, status, name
-                FROM foods
-                WHERE id = ${foodId}
-                FOR UPDATE
-            `;
+    SELECT id, stock, reserved, status, name
+    FROM foods
+    WHERE id = ${foodId}
+    FOR UPDATE
+    `;
 
             if (!food) {
                 throw new Error('商品が見つかりません');
@@ -153,6 +145,7 @@ export class InventoryService {
                 throw new Error('商品が利用できません');
             }
 
+            // 利用可能在庫を計算
             const availableStock = food.stock - food.reserved;
 
             if (availableStock < quantity) {
@@ -175,7 +168,7 @@ export class InventoryService {
                 changeType: this.CHANGE_TYPES.RESERVE,
                 quantity,
                 previousStock: food.stock,
-                newStock: food.stock, // 実際の在庫は変わらない
+                newStock: food.stock,
                 createdBy: userId,
                 note: note || `在庫予約: ${quantity}個`
             });
@@ -187,9 +180,7 @@ export class InventoryService {
         });
     }
 
-    /**
-     * 予約解除（カート削除時など）
-     */
+    // 予約解除
     static async releaseReservation(
         foodId: number,
         quantity: number,
@@ -224,7 +215,7 @@ export class InventoryService {
                 changeType: this.CHANGE_TYPES.RELEASE,
                 quantity,
                 previousStock: food.stock,
-                newStock: food.stock, // 実際の在庫は変わらない
+                newStock: food.stock,
                 createdBy: userId,
                 note: note || `予約解除: ${quantity}個`
             });
@@ -236,17 +227,15 @@ export class InventoryService {
         });
     }
 
-    /**
-     * 予約確定（注文確定時）
-     */
+    // 注文確定による在庫減算
     static async confirmReservation(
         foodId: number,
         quantity: number,
         orderId: number,
         userId: number,
-        tx?: any
+        tx?: Prisma.TransactionClient
     ): Promise<{ success: boolean; newStock: number }> {
-        const executeWithTx = async (transaction: any) => {
+        const executeWithTx = async (transaction: Prisma.TransactionClient) => {
             const food = await transaction.food.findUnique({
                 where: { id: foodId },
                 select: { stock: true, reserved: true, version: true }
@@ -260,6 +249,7 @@ export class InventoryService {
                 throw new Error(`確定数量が予約済み数量を超えています。予約済み: ${food.reserved}個`);
             }
 
+            // 新しい在庫と予約数を計算
             const newStock = food.stock - quantity;
             const newReserved = food.reserved - quantity;
 
@@ -291,7 +281,7 @@ export class InventoryService {
             };
         };
 
-        // 外部からtxが渡された場合はそれを使用、なければ新しいトランザクションを作成
+        // トランザクション内で実行
         if (tx) {
             return await executeWithTx(tx);
         } else {
@@ -299,9 +289,7 @@ export class InventoryService {
         }
     }
 
-    /**
-     * 在庫状況を取得
-     */
+    // 在庫情報取得
     static async getStockInfo(foodId: number): Promise<{
         stock: number;
         reserved: number;
@@ -322,6 +310,7 @@ export class InventoryService {
             return null;
         }
 
+        // 利用可能在庫を計算
         const available = food.stock - food.reserved;
         const isLowStock = food.stock <= food.min_stock;
 
@@ -334,9 +323,7 @@ export class InventoryService {
         };
     }
 
-    /**
-     * 在庫履歴を取得
-     */
+    // 在庫履歴取得
     static async getInventoryHistory(
         foodId: number,
         options: {
@@ -348,7 +335,7 @@ export class InventoryService {
     ): Promise<InventoryHistory[]> {
         const { limit = 50, offset = 0, changeType, orderId } = options;
 
-        const where: any = { food_id: foodId };
+        const where: Prisma.InventoryHistoryWhereInput = { food_id: foodId };
 
         if (changeType) {
             where.change_type = changeType;
@@ -374,11 +361,8 @@ export class InventoryService {
         });
     }
 
-    /**
-     * 在庫履歴記録のヘルパー関数
-     */
     private static async recordInventoryChange(
-        tx: any,
+        tx: Prisma.TransactionClient,
         data: {
             foodId: number;
             changeType: string;
@@ -404,9 +388,7 @@ export class InventoryService {
         });
     }
 
-    /**
-     * 在庫一括取得（管理者用）
-     */
+    // 全商品の在庫状況取得
     static async getAllStockStatus(
         options: {
             lowStockOnly?: boolean;

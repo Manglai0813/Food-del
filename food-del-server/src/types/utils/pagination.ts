@@ -1,19 +1,18 @@
-// ページネーションクエリパラメータ
 export interface PaginationQuery {
-        page?: number;
-        limit?: number;
+    page?: number;
+    limit?: number;
 }
 
 // ソートクエリパラメータ
 export interface SortQuery {
-        sortBy?: string;
-        sortOrder?: 'asc' | 'desc';
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
 }
 
 // 検索クエリパラメータ
 export interface SearchQuery {
-        search?: string;
+    search?: string;
 }
 
-// 基本クエリ型（ページネーション・ソート・検索を組み合わせ）
+// 基本クエリ型
 export type BaseQuery = PaginationQuery & SortQuery & SearchQuery;

@@ -1,2 +1,2 @@
-// 認証ページ統合：全認証ページをBarrel Export
+// 認証ページのエクスポート
 export { default as LoginPage } from './LoginPage';

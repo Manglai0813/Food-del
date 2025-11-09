@@ -1,8 +1,3 @@
-/**
- * API層エントリーポイント
- * すべてのAPI関数を統一エクスポート
- */
-
 // APIクライアント
 export { apiClient, apiCall } from './client';
 export type { ApiMethod, ApiRequestConfig } from './client';

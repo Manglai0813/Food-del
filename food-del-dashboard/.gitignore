@@ -1,4 +1,4 @@
-# Logs
+# ログファイル
 logs
 *.log
 npm-debug.log*
@@ -6,19 +6,66 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+bun-debug.log*
+bun-error.log*
 
+# 依存関係
 node_modules
+.pnp
+.pnp.js
+
+# ビルド出力
 dist
 dist-ssr
+build
 *.local
 
-# Editor directories and files
+# 環境変数
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# テスト
+coverage
+.nyc_output
+*.lcov
+.vitest
+
+# エディタディレクトリとファイル
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea
+*.swp
+*.swo
+*~
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# OSファイル
+Thumbs.db
+.DS_Store
+
+# Gitファイル
+.git
+
+# 一時ファイル
+*.tmp
+*.temp
+.cache
+.parcel-cache
+.eslintcache
+*.tsbuildinfo
+
+# パッケージマネージャーロックファイル
+# Bunを使用しているためbun.lockは保持その他のロックファイルは無視
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb

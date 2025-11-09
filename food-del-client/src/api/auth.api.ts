@@ -1,46 +1,42 @@
-/**
- * 認証関連API サービス
- */
-
 import { apiClient } from './client';
 import type {
-        User,
-        LoginRequest,
-        RegisterRequest,
-        AuthResponse,
-        RefreshTokenRequest,
-        TokenRefreshData,
-        UpdateProfileRequest,
-        ChangePasswordRequest,
-        ApiResponse,
+    User,
+    LoginRequest,
+    RegisterRequest,
+    AuthResponse,
+    RefreshTokenRequest,
+    TokenRefreshData,
+    UpdateProfileRequest,
+    ChangePasswordRequest,
+    ApiResponse,
 } from '@/types';
 
 export class AuthService {
-        // ログイン
-        async login(credentials: LoginRequest): Promise<ApiResponse<AuthResponse>> {
-                const response = await apiClient.post<AuthResponse>('/api/users/auth/login', credentials);
+    // ログイン
+    async login(credentials: LoginRequest): Promise<ApiResponse<AuthResponse>> {
+    const response = await apiClient.post<AuthResponse>('/api/users/auth/login', credentials);
+
+    if (response.success && response.data) {
+    apiClient.setAuthToken(response.data.token);
+    }
+
+    return response;
+    }
+
+    // 登録
+    async register(userData: RegisterRequest): Promise<ApiResponse<AuthResponse>> {
+    const response = await apiClient.post<AuthResponse>('/api/users/auth/register', userData);
 
                 if (response.success && response.data) {
                         apiClient.setAuthToken(response.data.token);
                 }
 
-                return response;
-        }
+    return response;
+    }
 
-        // 登録
-        async register(userData: RegisterRequest): Promise<ApiResponse<AuthResponse>> {
-                const response = await apiClient.post<AuthResponse>('/api/users/auth/register', userData);
-
-                if (response.success && response.data) {
-                        apiClient.setAuthToken(response.data.token);
-                }
-
-                return response;
-        }
-
-        // トークン更新
-        async refreshToken(refreshData: RefreshTokenRequest): Promise<ApiResponse<TokenRefreshData>> {
-                const response = await apiClient.post<TokenRefreshData>('/api/users/auth/refresh', refreshData);
+    // トークン更新
+    async refreshToken(refreshData: RefreshTokenRequest): Promise<ApiResponse<TokenRefreshData>> {
+    const response = await apiClient.post<TokenRefreshData>('/api/users/auth/refresh', refreshData);
 
                 if (response.success && response.data) {
                         apiClient.setAuthToken(response.data.token);
@@ -66,10 +62,10 @@ export class AuthService {
                 return apiClient.get<User>('/api/users/profile');
         }
 
-        // プロフィール更新
-        async updateProfile(profileData: UpdateProfileRequest): Promise<ApiResponse<User>> {
-                return apiClient.put<User>('/api/users/profile', profileData);
-        }
+    // プロフィール更新
+    async updateProfile(profileData: UpdateProfileRequest): Promise<ApiResponse<User>> {
+    return apiClient.put<User>('/api/users/profile', profileData);
+    }
 
         // アクセストークン設定
         setAccessToken(token: string | null): void {

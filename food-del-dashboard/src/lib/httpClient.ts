@@ -1,139 +1,134 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { type AxiosInstance, type AxiosResponse, type InternalAxiosRequestConfig, type AxiosError } from 'axios';
 import { useAuthStore } from '@/stores/authStore';
 import { handleHttpError, logError } from './errorHandler';
-import { API_BASE_URL, HTTP_STATUS } from './apiConstants';
+import { API_BASE_URL, HTTP_STATUS, API_ENDPOINTS } from './apiConstants';
 
-/**
- * 認証統合HTTP Client
- * JWT Token自動附加と認証失敗時の自動処理を提供
- */
+// Axios HTTP クライアントで認証とエラーハンドリングを統合
 class HttpClient {
-        private client: AxiosInstance;
+    private client: AxiosInstance;
 
-        constructor() {
-                this.client = axios.create({
-                        baseURL: API_BASE_URL,
-                        timeout: 10000,
-                });
+    constructor() {
+        this.client = axios.create({
+            baseURL: API_BASE_URL,
+            timeout: 10000,
+        });
 
-                // リクエストインターセプター: JWT Token自動附加とFormData処理
-                this.client.interceptors.request.use(
-                        (config: AxiosRequestConfig) => {
-                                // headersオブジェクトが存在することを確保
-                                if (!config.headers) {
-                                        config.headers = {};
-                                }
+        // JWT Token を自動的にリクエストヘッダーに追加
+        this.client.interceptors.request.use(
+            (config: InternalAxiosRequestConfig) => {
+                // リクエストヘッダーオブジェクトが存在することを確保
+                if (!config.headers) {
+                    config.headers = {} as typeof config.headers;
+                }
 
-                                const { token } = useAuthStore.getState();
+                const { token } = useAuthStore.getState();
 
-                                if (token) {
-                                        config.headers.Authorization = `Bearer ${token}`;
-                                }
+                if (token) {
+                    config.headers.Authorization = `Bearer ${token}`;
+                }
 
-                                // FormDataの場合、Content-Typeヘッダーを削除してAxiosに自動検出させる
-                                // (multipart/form-data with boundaries)
-                                if (config.data instanceof FormData) {
-                                        delete config.headers['Content-Type'];
-                                } else {
-                                        // FormData以外の場合、デフォルトのContent-Typeを設定
-                                        config.headers['Content-Type'] = 'application/json';
-                                }
+                // FormData はヘッダーを削除して自動検出させる、JSON はデフォルト設定
+                if (config.data instanceof FormData) {
+                    delete config.headers['Content-Type'];
+                } else {
+                    config.headers['Content-Type'] = 'application/json';
+                }
 
-                                return config;
-                        },
-                        (error: Error) => Promise.reject(error)
-                );
+                return config;
+            },
+            (error: Error) => Promise.reject(error)
+        );
 
-                // レスポンスインターセプター: エラー処理とトークン自動更新
-                this.client.interceptors.response.use(
-                        (response: AxiosResponse) => response,
-                        async (error: AxiosResponse | Error) => {
-                                if (!('config' in error)) {
-                                        return Promise.reject(error);
-                                }
-                                const originalRequest = error.config as AxiosRequestConfig;
+        // 401 エラーはトークンをリフレッシュしてリトライ、その他のエラーは統一ハンドラで処理
+        this.client.interceptors.response.use(
+            (response: AxiosResponse) => response,
+            async (error: AxiosError | Error) => {
+                if (!('config' in error) || !('response' in error)) {
+                    return Promise.reject(error);
+                }
+                const axiosError = error as AxiosError;
+                const originalRequest = axiosError.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-                                // 401エラー（認証失敗）かつ、まだリトライしていないリクエストの場合
-                                if (error.response?.status === HTTP_STATUS.UNAUTHORIZED && !originalRequest._retry) {
-                                        originalRequest._retry = true; // リトライフラグを立て、無限ループを防止
+                // 401 エラーで未リトライの場合、トークンをリフレッシュしてリクエストを再実行
+                if (axiosError.response?.status === HTTP_STATUS.UNAUTHORIZED && !originalRequest._retry) {
+                    originalRequest._retry = true;
 
-                                        try {
-                                                const { refreshToken, login } = useAuthStore.getState();
+                    try {
+                        const { token, setAuth } = useAuthStore.getState();
 
-                                                if (!refreshToken) {
-                                                        throw new Error('No refresh token available');
-                                                }
-
-                                                // トークンリフレッシュAPIを呼び出す
-                                                const response = await axios.post(
-                                                        `${API_BASE_URL}/auth/refresh`,
-                                                        { refreshToken }
-                                                );
-
-                                                const { accessToken: newAccessToken, user } = response.data;
-
-                                                // ZustandストアとlocalStorageの情報を更新
-                                                login(user, newAccessToken, refreshToken);
-
-                                                // 元のリクエストのヘッダーを新しいトークンで更新
-                                                originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-
-                                                // 元のリクエストを再実行
-                                                return this.client(originalRequest);
-
-                                        } catch (refreshError) {
-                                                // リフレッシュトークンが無効な場合、認証情報をクリアしてログインページへ
-                                                logError(refreshError, 'Token Refresh Failed');
-                                                useAuthStore.getState().clearAuth();
-                                                window.location.href = '/login';
-                                                return Promise.reject(refreshError);
-                                        }
-                                }
-
-                                // その他のエラーは統一エラーハンドラで処理
-                                const apiError = handleHttpError(error);
-                                return Promise.reject(apiError);
+                        if (!token) {
+                            throw new Error('No token available');
                         }
-                );
-        }
 
+                        // トークンリフレッシュエンドポイントを呼び出す
+                        const response = await axios.post(
+                            `${API_BASE_URL}${API_ENDPOINTS.AUTH.REFRESH}`,
+                            { token }
+                        );
 
-        // GETリクエスト実行
-        async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-                const response = await this.client.get<T>(url, config);
-                return response.data;
-        }
+                        const { user, token: newAccessToken } = response.data;
 
-        // POSTリクエスト実行
-        async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-                const response = await this.client.post<T>(url, data, config);
-                return response.data;
-        }
+                        // Zustand ストアに新しいトークンとユーザー情報を保存
+                        setAuth({ user, token: newAccessToken });
 
-        // PUTリクエスト実行
-        async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-                const response = await this.client.put<T>(url, data, config);
-                return response.data;
-        }
+                        // 元のリクエストにを新しいトークンで更新
+                        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 
-        // DELETEリクエスト実行
-        async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-                const response = await this.client.delete<T>(url, config);
-                return response.data;
-        }
+                        // リクエストを再実行
+                        return this.client(originalRequest);
 
-        // PATCHリクエスト実行
-        async patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-                const response = await this.client.patch<T>(url, data, config);
-                return response.data;
-        }
+                    } catch (refreshError) {
+                        // トークンリフレッシュ失敗時は認証情報をクリアしてログイン画面へリダイレクト
+                        logError(refreshError, 'Token Refresh Failed');
+                        useAuthStore.getState().clearAuth();
+                        window.location.href = '/login';
+                        return Promise.reject(refreshError);
+                    }
+                }
 
-        // Axiosインスタンスへの直接アクセス
-        get axios() {
-                return this.client;
-        }
+                // その他のエラーは統一エラーハンドラで処理
+                const apiError = handleHttpError(error);
+                return Promise.reject(apiError);
+            }
+        );
+    }
+
+    // GET リクエストを実行
+    async get<T>(url: string, config?: { params?: Record<string, unknown> } & Partial<InternalAxiosRequestConfig>): Promise<T> {
+        const response = await this.client.get<T>(url, config);
+        return response.data;
+    }
+
+    // POST リクエストを実行
+    async post<T>(url: string, data?: unknown, config?: InternalAxiosRequestConfig): Promise<T> {
+        const response = await this.client.post<T>(url, data, config);
+        return response.data;
+    }
+
+    // PUT リクエストを実行
+    async put<T>(url: string, data?: unknown, config?: InternalAxiosRequestConfig): Promise<T> {
+        const response = await this.client.put<T>(url, data, config);
+        return response.data;
+    }
+
+    // DELETE リクエストを実行
+    async delete<T>(url: string, config?: InternalAxiosRequestConfig): Promise<T> {
+        const response = await this.client.delete<T>(url, config);
+        return response.data;
+    }
+
+    // PATCH リクエストを実行
+    async patch<T>(url: string, data?: unknown, config?: InternalAxiosRequestConfig): Promise<T> {
+        const response = await this.client.patch<T>(url, data, config);
+        return response.data;
+    }
+
+    // Axios インスタンスに直接アクセス
+    get axios() {
+        return this.client;
+    }
 };
 
-// HttpClientインスタンス作成
+// HttpClient シングルトンインスタンス
 export const httpClient = new HttpClient();
 export default httpClient;
