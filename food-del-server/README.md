@@ -275,7 +275,3 @@ bun run scripts/createTestUsers.ts
 - すべてのAPIリクエストとレスポンスに型定義
 - Zodスキーマによる実行時バリデーション
 - Prismaによるデータベースアクセスの型安全性
-
-## ライセンス
-
-Private
